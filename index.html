@@ -350,6 +350,13 @@
       }
     ];
 
+    /* ============================================================
+       RAFFLE ENDPOINT  — <<< PLACEHOLDER
+       Paste the Apps Script Web App URL (ends in /exec) here.
+       Leave "" to run in prototype mode (saves locally only).
+       ============================================================ */
+    const RAFFLE_ENDPOINT = "";
+
     /* ---------- Timing config ---------- */
     const FEEDBACK_MS = 850;     // how long right/wrong flash shows before advancing
     const IDLE_RESET_MS = 12000; // auto-reset to Start after inactivity
@@ -473,15 +480,28 @@
       }
       emailError.textContent = "";
 
-      /* <<< PLACEHOLDER: send `val` to the raffle destination
-         (Salesforce Web-to-Lead / Google Sheet / Airtable).
-         For the prototype we just hold it locally + log it. */
+      const entry = { email: val, score: score, at: new Date().toISOString() };
+
+      // Local backup — always kept, even if the network send fails.
       try {
         const entries = JSON.parse(localStorage.getItem("raffleEntries") || "[]");
-        entries.push({ email: val, score: score, at: new Date().toISOString() });
+        entries.push(entry);
         localStorage.setItem("raffleEntries", JSON.stringify(entries));
-      } catch (err) { /* ignore storage errors in prototype */ }
-      console.log("[PROTOTYPE] Raffle entry captured:", val, "score:", score);
+      } catch (err) { /* ignore storage errors */ }
+
+      // Send to the Google Sheet (Apps Script web app), if configured.
+      // text/plain avoids a CORS preflight that Apps Script can't answer.
+      // Fire-and-forget: we advance immediately so a wifi blip never
+      // traps a player at the booth. The local backup covers failures.
+      if (RAFFLE_ENDPOINT) {
+        fetch(RAFFLE_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ email: val, score: score })
+        }).catch(err => console.warn("Raffle send failed (kept local backup):", err));
+      } else {
+        console.log("[PROTOTYPE] No endpoint set — entry saved locally only:", val);
+      }
 
       goThanks();
     });
